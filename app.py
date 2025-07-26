@@ -2,13 +2,6 @@ import requests
 import json, numpy as np, os
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-# Using a try-except block to handle the import error
-try:
-    from sentence_transformers import SentenceTransformer
-    sentence_transformer_available = True
-except ImportError:
-    sentence_transformer_available = False
-    print("Warning: SentenceTransformer could not be imported. Using fallback mode.")
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -35,71 +28,57 @@ genai.configure(api_key=GEMINI_API_KEY)
 # for model in genai.list_models():
 #     print(model.name)
 
-# Configure Hugging Face token if available
-if HUGGINGFACE_TOKEN:
-    import huggingface_hub
-    huggingface_hub.login(token=HUGGINGFACE_TOKEN)
 
-# --- Load Database and Model ---
+
+# --- Load Database ---
 print("Loading database...")
 with open('embeddings.json', 'r', encoding='utf-8') as f:
     knowledge_base = json.load(f)
-vectors = np.array([item['vector'] for item in knowledge_base])
 
-# Load the model only if SentenceTransformer is available
-if sentence_transformer_available:
-    try:
-        print("Loading SentenceTransformer model...")
-        # Try to use a local model if available
-        model = SentenceTransformer('all-MiniLM-L6-v2', cache_folder='./model_cache')
-        print("✅ Database and model loaded.")
-    except Exception as e:
-        print(f"Error loading SentenceTransformer model: {e}")
-        print("Switching to fallback mode (using pre-computed embeddings only)")
-        model = None
-else:
-    model = None
-    print("✅ Database loaded. Model loading skipped (using pre-computed embeddings only).")
+# --- Hugging Face Inference API for Embeddings ---
+HF_EMBEDDING_API = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+def get_embedding(text):
+    headers = {"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
+    response = requests.post(HF_EMBEDDING_API, headers=headers, json={"inputs": text})
+    if response.status_code == 200:
+        return np.array(response.json()[0])
+    else:
+        raise Exception(f"Hugging Face API error: {response.status_code} {response.text}")
 
 # --- RAG function ---
 def get_rag_response(query):
-    global model  # Reference the global sentence transformer model
-    
-    if sentence_transformer_available and model is not None:
-        # Embed the query using SentenceTransformer
-        query_vector = model.encode([query])[0]
-        
-        # Find similar context
-        similarities = cosine_similarity([query_vector], vectors)[0]
-        top_k_indices = np.argsort(similarities)[-3:][::-1]  # Get top 3 most similar items
+    # Embed the query using Hugging Face Inference API
+    try:
+        query_vector = get_embedding(query)
+    except Exception as e:
+        print(f"Embedding error: {e}")
+        # Fallback: Use all content if embedding fails
+        top_k_indices = range(min(3, len(knowledge_base)))
     else:
-        # Fallback: If SentenceTransformer is not available, use all content
-        # This is a simplified approach for demo purposes
-        print("Using fallback mode: sending all knowledge base entries to Gemini")
-        top_k_indices = range(min(3, len(knowledge_base)))  # Just use the first 3 items or fewer
-    
+        # Compute similarities with all knowledge base vectors
+        vectors = np.array([item['vector'] for item in knowledge_base])
+        similarities = cosine_similarity([query_vector.reshape(1, -1), vectors])[0]
+        top_k_indices = np.argsort(similarities)[-3:][::-1]
+
     # Extract relevant contexts
     contexts = [knowledge_base[i]['content'] for i in top_k_indices]
     combined_context = "\n".join(contexts)
-    
+
     # Extract the actual question from potential prompt engineering
     actual_query = query
     if "IMPORTANT:" in query and "Mirza Yoosha Minhaj" in query:
-        # This is coming from the web interface with the CONVERSATION_ENHANCER
-        # Just use the original query without extracting anything
         pass
-    
-    # Generate response with Gemini (using a different variable name)
+
+    # Generate response with Gemini
     gemini_model = genai.GenerativeModel('gemini-1.5-flash')
     prompt = f"""Based only on the following information, answer the user's question.
     If the answer cannot be derived from the provided information, respond with "I don't have enough information to answer that question."
-    
+
     Information:
     {combined_context}
-    
+
     User question: {actual_query}
     """
-    
     response = gemini_model.generate_content(prompt)
     return response.text
 
