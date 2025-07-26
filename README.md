@@ -4,7 +4,7 @@ A cutting-edge, deployable 3D voice chatbot that fuses Retrieval-Augmented Gener
 
 ---
 
-**🌐 Live Demo:** [Deployed at zyx link](https://zyx)
+**🌐 Live Demo:** (https://threed-voice-bot-with-rag-and-llm.onrender.com/)
 
 ---
 
