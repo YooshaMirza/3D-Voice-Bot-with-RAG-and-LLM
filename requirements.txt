@@ -1,6 +1,7 @@
 # --- Build Tools ---
 setuptools
 wheel
+gunicorn
 
 # --- Web Framework ---
 flask
