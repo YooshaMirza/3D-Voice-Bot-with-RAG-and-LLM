@@ -5,6 +5,7 @@ wheel
 # --- Web Framework ---
 flask
 flask-cors
+gunicorn
 
 # --- ML/AI Libraries ---
 # Use >= for minimum required features
