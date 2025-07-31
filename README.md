@@ -4,7 +4,8 @@ A cutting-edge, deployable 3D voice chatbot that fuses a **Custom Retrieval-Augm
 
 
 ### 🌐 Live Demo
-[**https://threed-voice-bot-with-rag-and-llm.onrender.com/**](https://threed-voice-bot-with-rag-and-llm.onrender.com/)
+Main Link :- [**https://chatbot-murex-eta-24.vercel.app/**](https://chatbot-murex-eta-24.vercel.app/)       <br><br>
+Alternative Link:-[**https://threed-voice-bot-with-rag-and-llm.onrender.com/**](https://threed-voice-bot-with-rag-and-llm.onrender.com/)
 
 ---
 
